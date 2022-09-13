@@ -1,0 +1,11 @@
+scikit-learn
+mlflow==1.27.0
+matplotlib
+xgboost
+hyperopt
+azure-storage-blob
+azure-core
+jinja2
+python-dotenv
+category_encoders
+fastparquet

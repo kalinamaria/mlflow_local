@@ -1,0 +1,65 @@
+version: '2.10'
+
+# Reference architecture: https://www.mlflow.org/docs/latest/tracking.html#scenario-4-mlflow-with-remote-tracking-server-backend-and-artifact-stores
+
+# Create postgres database to use as model registry
+# TODO: check if sqlite is better?
+services:
+    db:
+        restart: always
+        # see: https://hub.docker.com/_/postgres
+        image: postgres:14.5-alpine
+        container_name: mlflow_db
+        ports:
+            - 5432:5432
+        environment:
+            - POSTGRES_DB=${POSTGRES_DB}
+            - POSTGRES_USER=${POSTGRES_USER}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+        volumes:
+            - ./dbdata:/var/lib/postgresql/data
+
+# Create mock azure bucket and require environment variables
+# see: https://hub.docker.com/_/microsoft-azure-storage-azurite
+# see: https://mlflow.org/docs/latest/tracking.html#azure-blob-storage
+# TODO: test
+    store:
+        restart: always
+        # see: https://hub.docker.com/_/postgres
+        image: mcr.microsoft.com/azure-storage/azurite
+        command: "azurite --loose --blobHost 0.0.0.0 --blobPort 10000 --queueHost 0.0.0.0 --queuePort 10001 --location /artifact-store --debug /debug.log"
+        container_name: mlflow_store
+        ports:
+          - 10010:10000
+          - 10011:10001
+          - 10012:10002
+        environment:
+            - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING}
+            - AZURE_STORAGE_ACCESS_KEY=${AZURE_STORAGE_ACCESS_KEY}
+            - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
+        volumes:
+            - ./azurite:/artifact-store
+
+# Create mlflow tracking server. Simple lite Python container with mlflow libraries installed
+# TODO: decide if we should move startup command to mlflow_tracker/init.sh or have below
+# TODO: test
+# current justification is to have below as this follows same pattern as above
+    tracker:
+        restart: always
+        image: mlflow_tracker
+        command: "mlflow server --backend-store-uri postgresql://${AZURE_STORAGE_CONNECTION_STRING} --default-artifact-root S3:/bucket_name --host remote_host"
+        container_name: mlflow_tracker
+        ports: 
+            - 5000:5000
+        environment:
+            - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING}
+            - AZURE_STORAGE_ACCESS_KEY=${AZURE_STORAGE_ACCESS_KEY}
+            - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
+
+# TODO: Create runner (trains/predicts models)
+
+
+
+# TODO: mock S3 or GCS or other bucket
+# see: https://medium.com/swlh/how-to-mock-aws-services-in-local-development-e231852e8a0f
+

@@ -1,0 +1,1 @@
+mlflow server --backend-store-uri postgresql://URI --default-artifact-root S3:/bucket_name --host remote_host
